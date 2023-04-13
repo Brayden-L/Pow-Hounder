@@ -1,0 +1,9 @@
+[server]
+runOnSave = true
+maxUploadSize = 1000
+maxMessageSize = 1000
+
+[theme]
+base="light"
+primaryColor="#1b232b"
+secondaryBackgroundColor="#b1c4d8"

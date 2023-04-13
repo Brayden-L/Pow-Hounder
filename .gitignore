@@ -1,0 +1,12 @@
+# Ignore all venv files
+.venv/
+# Ignore all vscode files
+.vscode/
+# Ignore pycache
+__pycache__/
+# Ignore geckodriver
+geckodriver.log
+# Ignore .env file
+.env
+# Ignore .ppk files
+.ppk/

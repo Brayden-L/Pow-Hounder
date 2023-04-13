@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "pow-hounder"
+version = "0.1.0"
+description = ""
+authors = ["Brayden-L <braydenmlevy@gmail.com>"]
+readme = "README.md"
+packages = [{include = "pow_hounder"}]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.12"
+numpy = "^1.23.4"
+pandas = "^1.5.1"
+seaborn = "^0.12.1"
+plotly = "^5.11.0"
+PyInputPlus = "^0.2.12"
+requests = "^2.28.1"
+beautifulsoup4 = "^4.11.1"
+nltk = "^3.7"
+nbformat = "^5.7.0"
+tqdm = "^4.64.1"
+lxml = "^4.9.2"
+cchardet = "^2.1.7"
+ipywidgets = "^8.0.4"
+streamlit = { version = "^1.16.0", python = ">=3.9,<3.9.7 || >3.9.7,<4.0" }
+streamlit-aggrid = "^0.3.3"
+streamlit-nested-layout = {version = "^0.1.1", python = ">=3.9,<3.9.7 || >3.9.7,<4.0" }
+stqdm = "^0.0.4"
+streamlit-lottie = "^0.0.3"
+scipy = "^1.10.0"
+selenium-wire = "^5.1.0"
+selenium = "^4.8.0"
+webdriver-manager = "^3.8.5"
+category-encoders = "^2.6.0"
+twilio = "^8.0.0"
+pytz = "^2023.3"
+pymysql = "^1.0.3"
+mysql-connector-python = "^8.0.32"
+SQLAlchemy = "^2.0.9"
+
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.17.0"
+flake8 = "^6.0.0"
+autopep8 = "^2.0.0"
+black = {version = "^23.1a1", allow-prereleases = true}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
