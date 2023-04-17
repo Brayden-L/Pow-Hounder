@@ -24,7 +24,7 @@ from selenium.webdriver.common.by import By
 
 # SQL Related
 import mysql.connector as mariadb
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, URL, text
 
 # Notification Related
 from twilio.rest import Client
@@ -37,30 +37,30 @@ from dotenv import dotenv_values
 import streamlit as st
 
 
-# %%
-def conn_to_sql(secrets):
-    try:
-        mariadb_conn = mariadb.connect(
-            user="admin",
-            password=secrets["AWS_RDS_SQL_PW"],
-            host=secrets['AWS_RDS_SQL_HOSTNAME'],
-            port="3306",
-            database="Pow_Hounder",
-        )
-        print("Connected to SQL server")
-    except mariadb.Error as e:
-        if e.errno == mariadb.errorcode.ER_ACCESS_DENIED_ERROR:
-            print("Something is wrong with username or password")
-        elif e.errno == mariadb.errorcode.ER_BAD_DB_ERROR:
-            print("Database does not exist")
-        else:
-            print(e)
-    return mariadb_conn
-
+# SETUP FUNCTIONS
 # %%
 def import_secrets():
     secrets = dotenv_values("C:/Users/Brayden/Desktop/Pow_Hounder/.env")
     return secrets
+
+
+# %%
+def create_sql_engine(secrets):
+    try:
+        sql_url_obj = URL.create(
+            "mysql+mysqlconnector",
+            username="admin",
+            password=secrets["AWS_RDS_SQL_PW"],
+            host=secrets["AWS_RDS_SQL_HOSTNAME"],
+            port="3306",
+            database="Pow_Hounder",
+        )
+        engine = create_engine(sql_url_obj, pool_recycle=3600)
+        print("Connected to SQL server")
+    except:
+        print("Connection Error")
+    return engine
+
 
 # %%
 def twilio_setup(secrets):
@@ -86,6 +86,17 @@ def create_selenium_driver(service):
     return driver
 
 
+# %%
+def deploy_drivers_and_engines():
+    secrets = import_secrets()
+    selenium_service = selenium_setup()
+    driver = create_selenium_driver(selenium_service)
+    engine = create_sql_engine(secrets)
+    client = twilio_setup(secrets)
+    return driver, engine, client
+
+
+# SCRAPE AND SQL PUSH FUNCTIONS
 # %%
 def dl_lift_status(driver, retries=3):
     """ """
@@ -151,23 +162,6 @@ def dl_lift_status(driver, retries=3):
 
 
 # %%
-def check_for_lift_status_change(df_before, df_now):
-    df_differences = df_before["lift_status"].compare(df_now["lift_status"])
-    if not df_differences.empty:
-        update_str_list = []
-        for ind in df_differences.index:
-            updated_lift_name = df_before.loc[ind, "lift_name"]
-            updated_lift_prev_status = df_differences.loc[ind, "self"]
-            updated_lift_new_status = df_differences.loc[ind, "other"]
-            update_str = f"{updated_lift_name} \n{updated_lift_prev_status} -> {updated_lift_new_status}"
-            update_str_list.append(update_str)
-            update_full_str = " \n \n".join(update_str_list)
-    else:
-        update_full_str = None
-    return update_full_str
-
-
-# %%
 def dl_wind_dat(driver):
     wind_dat_page_link = "https://mammothmountain.westernweathergroup.com/"
     wind_dat_dl_butt = """//*[@id="Body"]/div/div/div[2]/div/div/div/div[1]/div/a[2]"""
@@ -183,6 +177,29 @@ def dl_wind_dat(driver):
     df["Date"] = df["Date"].apply(
         lambda x: dt.datetime.strptime(x, "%m/%d/%y").strftime("%Y:%m:%d")
     )
+    cols = [
+        "station",
+        "date_of_reading",
+        "time_of_reading",
+        "wind_spd",
+        "wind_dir",
+        "wind_gust",
+        "temp",
+        "wind_chill",
+        "rel_humidity",
+        "dew_pt",
+        "wet_bulb",
+        "daily_max_wind",
+        "time_of_max_wind",
+        "max_wind_dir",
+        "daily_min_temp",
+        "daily_max_temp",
+        "yesterday_max_gust",
+        "yesterday_min_temp",
+        "yesterday_max_temp",
+        "data_scrape_time",
+    ]
+    df = df.set_axis(cols, axis=1)
     return df
 
 
@@ -207,21 +224,29 @@ def dl_snow_dat(driver):
     except:
         snowfall = None
 
-    snowfall_scrape_time = data_scrape_times = dt.datetime.now().astimezone(
-        pytz.timezone("US/Pacific")
-    )
-    snowfall_scrape_time = snowfall_scrape_time.strftime("%Y-%m-%d %H:%M:%S")
+    data_scrape_time = dt.datetime.now().astimezone(pytz.timezone("US/Pacific"))
+    data_scrape_time = data_scrape_time.strftime("%Y-%m-%d %H:%M:%S")
 
-    return [snowfall, snowfall_scrape_time]
+    df = pd.DataFrame(
+        data={"snowfall": [snowfall], "data_scrape_time": [data_scrape_time]}
+    )
+    return df
 
 
 # %%
-def push_snow_dat(snow_stat, db_conn):
-    cursor = db_conn.cursor()
-    cursor.execute(
-        f"INSERT INTO Snow_Log (snowfall, data_scrape_time) VALUES ({snow_stat[0]}, '{snow_stat[1]}')"
-    )
-    db_conn.commit()
+def push_snow_dat(snow_dat, engine):
+    snow_dat.to_sql("Snow_Log", engine, if_exists="append", index=False)
+    print("df pushed")
+
+
+def push_wind_dat(wind_dat, engine):
+    wind_dat.to_sql("Wind_Log", engine, if_exists="append", index=False)
+    print("df pushed")
+
+
+def push_lift_dat(lift_dat, engine):
+    lift_dat.to_sql("Lift_Status_Log", engine, if_exists="append", index=False)
+    print("df pushed")
 
 
 # %%
@@ -235,88 +260,94 @@ def is_now_in_time_period(start_time, end_time, now_time):
 
 # %%
 def perform_lift_scrape(
-    driver, poll_int=300, start_time=dt.time(5, 30), end_time=dt.time(17, 30)
+    poll_int=300, start_time=dt.time(5, 30), end_time=dt.time(17, 30)
 ):
-    while is_now_in_time_period(
-        start_time,
-        end_time,
-        now_time=dt.datetime.now().astimezone(pytz.timezone("US/Pacific")).time(),
-    ):
-        lift_dat = dl_lift_status(driver)
-        # TODO sql upload code goes here
-        time.sleep(poll_int)
+    driver, engine = deploy_drivers_and_engines()
+    while True:
+        while is_now_in_time_period(
+            start_time,
+            end_time,
+            now_time=dt.datetime.now().astimezone(pytz.timezone("US/Pacific")).time(),
+        ):
+            lift_dat = dl_lift_status(driver)
+            push_lift_dat(lift_dat, engine)
+            time.sleep(poll_int)
 
 
-# %%
-def push_lift_dat(lift_dat, db_conn):
-    cursor = db_conn.cursor()
-    cursor.execute(
-        f'INSERT INTO Snow_Log (lift_name, lift_status, lift_update_time, data_scrape_time) VALUES (\'{lift_dat["lift_name"]}\', \'{lift_dat["lift_status"]}\', \'{lift_dat["lift_update_time"]}\')'
-    )
-    db_conn.commit()
-
-
-# %%
-def perform_wind_scrape(
-    driver, poll_int=900, start_time=dt.time(5, 30), end_time=dt.time(17, 30)
-):
-    while is_now_in_time_period(
-        start_time,
-        end_time,
-        now_time=dt.datetime.now().astimezone(pytz.timezone("US/Pacific")).time(),
-    ):
+def perform_wind_scrape(poll_int=900):
+    driver, engine = deploy_drivers_and_engines()
+    while True:
         wind_dat = dl_wind_dat(driver)
-        # TODO sql upload code goes here
+        push_wind_dat(wind_dat, engine)
         time.sleep(poll_int)
 
 
-def perform_snow_scrape(driver, poll_int=3600):
-    snow_dat = dl_snow_dat(driver)
-    # TODO sql upload code goes here
-    time.sleep(poll_int)
+def perform_snow_scrape(poll_int=3600):
+    driver, engine = deploy_drivers_and_engines()
+    while True:
+        snow_dat = dl_snow_dat(driver)
+        push_snow_dat(snow_dat, engine)
+        time.sleep(poll_int)
+
+
+# NOTIFICATION RELATED FUNCTIONS
+# %%
+def check_for_lift_status_change(df_before, df_now):
+    df_differences = df_before["lift_status"].compare(df_now["lift_status"])
+    if not df_differences.empty:
+        update_str_list = []
+        for ind in df_differences.index:
+            updated_lift_name = df_before.loc[ind, "lift_name"]
+            updated_lift_prev_status = df_differences.loc[ind, "self"]
+            updated_lift_new_status = df_differences.loc[ind, "other"]
+            update_str = f"{updated_lift_name} \n{updated_lift_prev_status} -> {updated_lift_new_status}"
+            update_str_list.append(update_str)
+            update_full_str = " \n \n".join(update_str_list)
+    else:
+        update_full_str = None
+    return update_full_str
+
+
+def check_valid_phone_number(engine):
+    df = pd.read_sql("Active_Notify_Numbers", engine.connect())
+    df["start_date"] = pd.to_datetime(df["start_date"])
+    df["end_date"] = pd.to_datetime(df["end_date"])
+    todays_date = pd.Timestamp("today")
+    phone_list_series = df[
+        (todays_date >= df["start_date"]) & (todays_date <= df["end_date"])
+    ]["phone_number"]
+    phone_list = phone_list_series.to_list()
+    return phone_list
 
 
 # %%
-def lift_status_notifier(driver, secrets, phone_number_list, int=300):
-    client = twilio_setup(secrets)
-    df_before = dl_lift_status(driver)
+def lift_status_notifier(int=300):
+    driver, engine, twilio_client = deploy_drivers_and_engines()
+    df_before = dl_lift_status(driver)  # Initialize for initial comparison
 
-    while is_now_in_time_period(
-        start_time=dt.time(5, 30),
-        end_time=dt.time(17, 30),
-        now_time=dt.datetime.now().astimezone(pytz.timezone("US/Pacific")).time(),
-    ):
-        df_now = dl_lift_status(driver)
-        lift_update_str = check_for_lift_status_change(df_before, df_now)
-        df_before = df_now  # reset comparison
-        print(df_before)
-        print(dt.datetime.now())
-        if lift_update_str:
-            print(lift_update_str)
-            message = client.messages.create(
-                body=lift_update_str, from_="+18336914492", to=phone_number_list
-            )
-        time.sleep(int)
-
-
-# %%
-def lift_status_notification_deploy():
-    secrets = import_secrets()
-    selenium_service = selenium_setup()
-    driver = create_selenium_driver(selenium_service)
-    mycursor = conn_to_sql()
-    lift_status_notifier(driver, secrets, "+19252075547")
+    while True:
+        while is_now_in_time_period(
+            start_time=dt.time(5, 30),
+            end_time=dt.time(17, 30),
+            now_time=dt.datetime.now().astimezone(pytz.timezone("US/Pacific")).time(),
+        ):
+            while phone_number_list := check_valid_phone_number(engine):
+                df_now = dl_lift_status(driver)
+                lift_update_str = check_for_lift_status_change(df_before, df_now)
+                df_before = df_now  # reset comparison
+                print(df_before)
+                print(dt.datetime.now())
+                if lift_update_str:
+                    print(lift_update_str)
+                    message = twilio_client.messages.create(
+                        body=lift_update_str, from_="+18336914492", to=phone_number_list
+                    )
+                time.sleep(int)
 
 
 # %%
-secrets = import_secrets()
-selenium_service = selenium_setup()
-driver = create_selenium_driver(selenium_service)
-db_conn = conn_to_sql(secrets)
-# %%
-lift_dat = dl_lift_status(driver)
-lift_dat
-# %%
-wind_dat = dl_wind_dat(driver)
-wind_dat
-# %%
+driver, engine, twilio_client = deploy_drivers_and_engines()
+with engine.connect() as connection:
+    result = connection.execute(
+        text("SELECT * FROM Pow_Hounder.Active_Notify_Numbers;")
+    )

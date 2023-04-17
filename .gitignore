@@ -9,4 +9,4 @@ geckodriver.log
 # Ignore .env file
 .env
 # Ignore .ppk files
-.ppk/
+*.ppk
