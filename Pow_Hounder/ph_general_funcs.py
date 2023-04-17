@@ -87,6 +87,13 @@ def create_selenium_driver(service):
 
 
 # %%
+def deploy_sql_engine():
+    secrets = import_secrets()
+    engine = create_sql_engine(secrets)
+    return engine
+
+
+# %%
 def deploy_drivers_and_engines():
     secrets = import_secrets()
     selenium_service = selenium_setup()
@@ -262,7 +269,7 @@ def is_now_in_time_period(start_time, end_time, now_time):
 def perform_lift_scrape(
     poll_int=300, start_time=dt.time(5, 30), end_time=dt.time(17, 30)
 ):
-    driver, engine = deploy_drivers_and_engines()
+    driver, engine, twilio_client = deploy_drivers_and_engines()
     while True:
         while is_now_in_time_period(
             start_time,
@@ -275,7 +282,7 @@ def perform_lift_scrape(
 
 
 def perform_wind_scrape(poll_int=900):
-    driver, engine = deploy_drivers_and_engines()
+    driver, engine, twilio_client = deploy_drivers_and_engines()
     while True:
         wind_dat = dl_wind_dat(driver)
         push_wind_dat(wind_dat, engine)
@@ -283,7 +290,7 @@ def perform_wind_scrape(poll_int=900):
 
 
 def perform_snow_scrape(poll_int=3600):
-    driver, engine = deploy_drivers_and_engines()
+    driver, engine, twilio_client = deploy_drivers_and_engines()
     while True:
         snow_dat = dl_snow_dat(driver)
         push_snow_dat(snow_dat, engine)
@@ -328,10 +335,13 @@ def lift_status_notifier(int=300):
     while True:
         while is_now_in_time_period(
             start_time=dt.time(5, 30),
-            end_time=dt.time(17, 30),
+            end_time=dt.time(23, 30),
             now_time=dt.datetime.now().astimezone(pytz.timezone("US/Pacific")).time(),
         ):
             while phone_number_list := check_valid_phone_number(engine):
+                phone_number_list = list(
+                    set(phone_number_list)
+                )  # remove duplicates from list
                 df_now = dl_lift_status(driver)
                 lift_update_str = check_for_lift_status_change(df_before, df_now)
                 df_before = df_now  # reset comparison
@@ -346,8 +356,29 @@ def lift_status_notifier(int=300):
 
 
 # %%
-driver, engine, twilio_client = deploy_drivers_and_engines()
-with engine.connect() as connection:
-    result = connection.execute(
-        text("SELECT * FROM Pow_Hounder.Active_Notify_Numbers;")
+def push_number(phone_number, user_notif_date_range):
+    engine = deploy_sql_engine()
+
+    phone_number = f"+1{phone_number}"  # add +1
+    start_date = user_notif_date_range[0].strftime("%Y-%m-%d")
+    end_date = user_notif_date_range[1].strftime("%Y-%m-%d")
+    df = pd.DataFrame(
+        {
+            "phone_number": [phone_number],
+            "start_date": [start_date],
+            "end_date": [end_date],
+        }
     )
+    df.to_sql("Active_Notify_Numbers", engine, if_exists="append", index=False)
+
+
+def rem_number(phone_number):
+    engine = deploy_sql_engine()
+
+    phone_number = f"+1{phone_number}"  # add +1
+    conn = engine.connect()
+    statement = text(
+        f"""DELETE FROM Active_Notify_Numbers WHERE phone_number='{phone_number}'"""
+    )
+    conn.execute(statement)
+    conn.commit()
