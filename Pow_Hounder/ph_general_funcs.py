@@ -39,8 +39,11 @@ import streamlit as st
 
 # SETUP FUNCTIONS
 # %%
-def import_secrets():
-    secrets = dotenv_values("C:/Users/Brayden/Desktop/Pow_Hounder/.env")
+def import_secrets(type):
+    if type == ".env":
+        secrets = dotenv_values("C:/Users/Brayden/Desktop/Pow_Hounder/.env")
+    if type == "streamlit":
+        secrets = st.secrets
     return secrets
 
 
@@ -87,15 +90,15 @@ def create_selenium_driver(service):
 
 
 # %%
-def deploy_sql_engine():
-    secrets = import_secrets()
+def deploy_sql_engine_streamlit():
+    secrets = import_secrets("streamlit")
     engine = create_sql_engine(secrets)
     return engine
 
 
 # %%
 def deploy_drivers_and_engines():
-    secrets = import_secrets()
+    secrets = import_secrets(".env")
     selenium_service = selenium_setup()
     driver = create_selenium_driver(selenium_service)
     engine = create_sql_engine(secrets)
