@@ -8,6 +8,11 @@ from ph_long_strs import blue_gradient_bg_img
 
 st.markdown(blue_gradient_bg_img, unsafe_allow_html=True)
 
+with st.expander("✋ Help ✋"):
+    st.markdown(
+        "You may add your number using the form below to be notified of lift status changes for the requested time period. \n\n You may also submit your number to remove yourself from notifications."
+    )
+
 col1, col2 = st.columns([1, 3])
 user_meth_bool = col1.selectbox("Add or Remove Notications", options=["Add", "Remove"])
 
@@ -22,6 +27,8 @@ if (len(user_phone_num) < 10) & (len(user_phone_num) > 0):
 if len(user_phone_num) > 10:
     invalid_num_bool = True
     st.warning("Invalid number, >10 numbers")
+if user_phone_num == "":
+    invalid_num_bool = True
 
 if user_meth_bool == "Add":
     user_notif_date_range = col1.date_input(
@@ -29,7 +36,7 @@ if user_meth_bool == "Add":
         value=[dt.datetime.today()],
         min_value=dt.datetime.today(),
         max_value=dt.datetime.today() + dt.timedelta(days=7),
-        help="Max duration 7 days",
+        help="Max allowable duration is 7 days",
     )
     add_notif_bool = col1.button(
         "Request Notifications",
