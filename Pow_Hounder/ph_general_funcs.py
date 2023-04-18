@@ -360,7 +360,7 @@ def lift_status_notifier(int=300):
 
 # %%
 def push_number(phone_number, user_notif_date_range):
-    engine = deploy_sql_engine()
+    engine = deploy_sql_engine_streamlit()
 
     phone_number = f"+1{phone_number}"  # add +1
     start_date = user_notif_date_range[0].strftime("%Y-%m-%d")
@@ -376,7 +376,7 @@ def push_number(phone_number, user_notif_date_range):
 
 
 def rem_number(phone_number):
-    engine = deploy_sql_engine()
+    engine = deploy_sql_engine_streamlit()
 
     phone_number = f"+1{phone_number}"  # add +1
     conn = engine.connect()
