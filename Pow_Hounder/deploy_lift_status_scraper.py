@@ -1,4 +1,4 @@
-from Pow_Hounder.ph_general_funcs import perform_lift_scrape
+from ph_general_funcs import perform_lift_scrape
 
 while True:
     try:
