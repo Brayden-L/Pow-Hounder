@@ -1,9 +1,7 @@
 from ph_general_funcs import perform_wind_scrape
 
-perform_wind_scrape()
-
-# while True:
-#     try:
-#         perform_wind_scrape()
-#     except:
-#         continue
+while True:
+    try:
+        perform_wind_scrape()
+    except:
+        continue
