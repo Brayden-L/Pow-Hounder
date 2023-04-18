@@ -4,7 +4,6 @@ version = "0.1.0"
 description = ""
 authors = ["Brayden-L <braydenmlevy@gmail.com>"]
 readme = "README.md"
-packages = [{include = "pow_hounder"}]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
