@@ -6,11 +6,6 @@ from pandas.api.types import CategoricalDtype
 import streamlit as st
 
 # Scraping Related
-import requests
-from requests.adapters import HTTPAdapter, Retry
-from bs4 import BeautifulSoup
-import lxml
-import cchardet
 import re
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
@@ -24,7 +19,6 @@ from selenium.webdriver.common.by import By
 from pyvirtualdisplay import Display
 
 # SQL Related
-import mysql.connector as mariadb
 from sqlalchemy import create_engine, URL, text
 
 # Notification Related
@@ -74,8 +68,6 @@ def twilio_setup(secrets):
 
 # %%
 def create_selenium_driver():
-    display = Display(visible=0, size=(800, 600))
-    display.start()
     service = Service(GeckoDriverManager().install())
 
     firefox_options = Options()
