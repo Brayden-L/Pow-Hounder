@@ -21,6 +21,7 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
 from webdriver_manager.firefox import GeckoDriverManager
 from selenium.webdriver.common.by import By
+from pyvirtualdisplay import Display
 
 # SQL Related
 import mysql.connector as mariadb
@@ -34,7 +35,7 @@ import datetime as dt
 import time
 import pytz
 from dotenv import dotenv_values
-import streamlit as st
+import os
 
 
 # SETUP FUNCTIONS
@@ -72,19 +73,23 @@ def twilio_setup(secrets):
 
 
 # %%
-def selenium_setup():
+def create_selenium_driver():
+    display = Display(visible=0, size=(800, 600))
+    display.start()
     service = Service(GeckoDriverManager().install())
-    return service
 
+    firefox_options = Options()
+    firefox_options.add_argument("--headless")
+    firefox_options.set_preference("browser.download.folderList", 2)
+    firefox_options.set_preference("browser.download.manager.showWhenStarting", False)
+    firefox_options.set_preference("browser.download.dir", os.getcwd())
+    firefox_options.set_preference("browser.helperApps.neverAsk.saveToDisk", "text/csv")
 
-# %%
-def create_selenium_driver(service):
-    firefoxOptions = Options()
-    firefoxOptions.add_argument("--headless")
     driver = webdriver.Firefox(
-        options=firefoxOptions,
+        options=firefox_options,
         service=service,
     )
+
     driver.implicitly_wait(2)
     return driver
 
@@ -99,8 +104,7 @@ def deploy_sql_engine_streamlit():
 # %%
 def deploy_drivers_and_engines():
     secrets = import_secrets(".env")
-    selenium_service = selenium_setup()
-    driver = create_selenium_driver(selenium_service)
+    driver = create_selenium_driver()
     engine = create_sql_engine(secrets)
     client = twilio_setup(secrets)
     return driver, engine, client

@@ -35,6 +35,7 @@ pytz = "^2023.3"
 pymysql = "^1.0.3"
 mysql-connector-python = "^8.0.32"
 SQLAlchemy = "^2.0.9"
+PyVirtualDisplay = "^3.0"
 
 
 [tool.poetry.group.dev.dependencies]
