@@ -312,6 +312,7 @@ def check_for_lift_status_change(df_before, df_now):
             update_str = f"{updated_lift_name} \n{updated_lift_prev_status} -> {updated_lift_new_status}"
             update_str_list.append(update_str)
             update_full_str = " \n \n".join(update_str_list)
+            update_full_str = "Pow-Hounder Update: \n \n" + update_full_str
     else:
         update_full_str = None
     return update_full_str
@@ -384,3 +385,44 @@ def rem_number(phone_number):
     )
     conn.execute(statement)
     conn.commit()
+    conn.close()
+
+
+def pull_scrape_sample():
+    engine = deploy_sql_engine_streamlit()
+    conn = engine.connect()
+
+    # lift_status log
+    statement = text(
+        f"""SELECT * FROM Lift_Status_Log order by liftstatusID desc LIMIT 25"""
+    )
+    df_lift_status_log = pd.read_sql_query(
+        statement,
+        conn,
+        index_col="liftstatusID",
+        parse_dates=["data_scrape_time"],
+    )
+    df_lift_status_log = df_lift_status_log.astype(str)
+
+    # wind log
+    statement = text(f"""SELECT * FROM Wind_Log order by windlogID desc LIMIT 23""")
+    df_wind_log = pd.read_sql_query(
+        statement,
+        conn,
+        index_col="windlogID",
+    )
+    df_wind_log = df_wind_log.astype(str)
+
+    # snow log
+    statement = text(f"""SELECT * FROM Snow_Log order by snowlogID desc LIMIT 10""")
+    df_snow_log = pd.read_sql_query(
+        statement,
+        conn,
+        index_col="snowlogID",
+    )
+    df_snow_log = df_snow_log.astype(str)
+
+    return df_lift_status_log, df_wind_log, df_snow_log
+
+
+# %%
