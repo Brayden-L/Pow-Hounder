@@ -53,7 +53,7 @@ def create_sql_engine(secrets):
             port="3306",
             database="Pow_Hounder",
         )
-        engine = create_engine(sql_url_obj, pool_recycle=3600)
+        engine = create_engine(sql_url_obj, pool_size=10, max_overflow=-1)
         print("Connected to SQL server")
     except:
         print("Connection Error")
@@ -112,7 +112,6 @@ def dl_lift_status(driver, retries=3):
             EC.presence_of_element_located((By.CLASS_NAME, "Lifts_inner__okoV3"))
         )
         lift_elem_list = driver.find_elements(By.CLASS_NAME, "Lifts_inner__okoV3")
-        driver.close()
     except TimeoutException:
         lift_elem_list = []
 
@@ -143,7 +142,7 @@ def dl_lift_status(driver, retries=3):
                 lift_update_time, "%H:%M %p"
             ).strftime("%H:%M:%S")
             if lift_update_time is None:
-                lift_update_time = "aaa"
+                lift_update_time = ""
         except:
             lift_update_time = ""
 
@@ -176,7 +175,6 @@ def dl_wind_dat(driver):
     val = driver.find_element("xpath", wind_dat_dl_butt)
     wind_dat_csv_link = val.get_attribute("href")
     df = pd.read_csv(wind_dat_csv_link)
-    driver.close()
     df["data_scrape_time"] = (
         dt.datetime.now()
         .astimezone(pytz.timezone("US/Pacific"))
@@ -223,7 +221,6 @@ def dl_snow_dat(driver):
             "xpath",
             """//*[@id="__next"]/div[6]/div[2]/div/article[3]/div[2]/div[2]/div[3]/table/tbody/tr[1]/td[8]/span""",
         )
-        driver.close()
     except TimeoutException:
         snow_elem = None
 
