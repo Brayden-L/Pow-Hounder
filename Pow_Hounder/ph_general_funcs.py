@@ -112,6 +112,7 @@ def dl_lift_status(driver, retries=3):
             EC.presence_of_element_located((By.CLASS_NAME, "Lifts_inner__okoV3"))
         )
         lift_elem_list = driver.find_elements(By.CLASS_NAME, "Lifts_inner__okoV3")
+        driver.close()
     except TimeoutException:
         lift_elem_list = []
 
@@ -175,6 +176,7 @@ def dl_wind_dat(driver):
     val = driver.find_element("xpath", wind_dat_dl_butt)
     wind_dat_csv_link = val.get_attribute("href")
     df = pd.read_csv(wind_dat_csv_link)
+    driver.close()
     df["data_scrape_time"] = (
         dt.datetime.now()
         .astimezone(pytz.timezone("US/Pacific"))
@@ -221,6 +223,7 @@ def dl_snow_dat(driver):
             "xpath",
             """//*[@id="__next"]/div[6]/div[2]/div/article[3]/div[2]/div[2]/div[3]/table/tbody/tr[1]/td[8]/span""",
         )
+        driver.close()
     except TimeoutException:
         snow_elem = None
 
@@ -242,17 +245,17 @@ def dl_snow_dat(driver):
 # %%
 def push_snow_dat(snow_dat, engine):
     snow_dat.to_sql("Snow_Log", engine, if_exists="append", index=False)
-    print("df pushed")
+    print(f"df pushed {dt.datetime.now()}")
 
 
 def push_wind_dat(wind_dat, engine):
     wind_dat.to_sql("Wind_Log", engine, if_exists="append", index=False)
-    print("df pushed")
+    print(f"df pushed {dt.datetime.now()}")
 
 
 def push_lift_dat(lift_dat, engine):
     lift_dat.to_sql("Lift_Status_Log", engine, if_exists="append", index=False)
-    print("df pushed")
+    print(f"df pushed {dt.datetime.now()}")
 
 
 # %%
