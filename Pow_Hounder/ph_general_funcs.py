@@ -164,6 +164,7 @@ def dl_lift_status(driver, retries=3):
             "data_scrape_time": data_scrape_times,
         }
     )
+    driver.close()
     return d
 
 
@@ -206,6 +207,7 @@ def dl_wind_dat(driver):
         "data_scrape_time",
     ]
     df = df.set_axis(cols, axis=1)
+    driver.close()
     return df
 
 
@@ -236,6 +238,7 @@ def dl_snow_dat(driver):
     df = pd.DataFrame(
         data={"snowfall": [snowfall], "data_scrape_time": [data_scrape_time]}
     )
+    driver.close()
     return df
 
 
