@@ -28,7 +28,7 @@ if (len(user_phone_num) < 10) & (len(user_phone_num) > 0):
 if len(user_phone_num) > 10:
     invalid_num_bool = True
     st.warning("Invalid input: >10 numbers")
-if re.match("^[0-9 -()]", user_phone_num):
+if not re.match("^[0-9 -()]", user_phone_num):
     invalid_num_bool = True
     st.warning("Invalid input: improper character present")
 if user_phone_num == "":

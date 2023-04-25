@@ -92,14 +92,14 @@ def create_selenium_driver(service):
 
 # %%
 def deploy_sql_engine_streamlit():
-    secrets = import_secrets("streamlit")
+    secrets = import_secrets(".env")
     engine = create_sql_engine(secrets)
     return engine
 
 
 # %%
 def deploy_drivers_and_engines():
-    secrets = import_secrets(".env")
+    secrets = import_secrets("streamlit")
     service = create_selenium_service()
     engine = create_sql_engine(secrets)
     client = twilio_setup(secrets)
@@ -326,7 +326,8 @@ def check_for_lift_status_change(df_before, df_now):
 
 
 def check_valid_phone_number(engine):
-    df = pd.read_sql("Active_Notify_Numbers", engine.connect())
+    with engine.connect() as conn:
+        df = pd.read_sql("Active_Notify_Numbers", conn)
     df["start_date"] = pd.to_datetime(df["start_date"])
     df["end_date"] = pd.to_datetime(df["end_date"])
     todays_date = pd.Timestamp("today")
@@ -384,50 +385,47 @@ def push_number(phone_number, user_notif_date_range):
 
 def rem_number(phone_number):
     engine = deploy_sql_engine_streamlit()
-
     phone_number = f"+1{phone_number}"  # add +1
-    conn = engine.connect()
-    statement = text(
-        f"""DELETE FROM Active_Notify_Numbers WHERE phone_number='{phone_number}'"""
-    )
-    conn.execute(statement)
-    conn.commit()
-    conn.close()
+    with engine.connect() as conn:
+        statement = text(
+            f"""DELETE FROM Active_Notify_Numbers WHERE phone_number='{phone_number}'"""
+        )
+        conn.execute(statement)
+        conn.commit()
 
 
 def pull_scrape_sample():
     engine = deploy_sql_engine_streamlit()
-    conn = engine.connect()
+    with engine.connect() as conn:
+        # lift_status log
+        statement = text(
+            f"""SELECT * FROM Lift_Status_Log order by liftstatusID desc LIMIT 25"""
+        )
+        df_lift_status_log = pd.read_sql_query(
+            statement,
+            conn,
+            index_col="liftstatusID",
+            parse_dates=["data_scrape_time"],
+        )
+        df_lift_status_log = df_lift_status_log.astype(str)
 
-    # lift_status log
-    statement = text(
-        f"""SELECT * FROM Lift_Status_Log order by liftstatusID desc LIMIT 25"""
-    )
-    df_lift_status_log = pd.read_sql_query(
-        statement,
-        conn,
-        index_col="liftstatusID",
-        parse_dates=["data_scrape_time"],
-    )
-    df_lift_status_log = df_lift_status_log.astype(str)
+        # wind log
+        statement = text(f"""SELECT * FROM Wind_Log order by windlogID desc LIMIT 23""")
+        df_wind_log = pd.read_sql_query(
+            statement,
+            conn,
+            index_col="windlogID",
+        )
+        df_wind_log = df_wind_log.astype(str)
 
-    # wind log
-    statement = text(f"""SELECT * FROM Wind_Log order by windlogID desc LIMIT 23""")
-    df_wind_log = pd.read_sql_query(
-        statement,
-        conn,
-        index_col="windlogID",
-    )
-    df_wind_log = df_wind_log.astype(str)
-
-    # snow log
-    statement = text(f"""SELECT * FROM Snow_Log order by snowlogID desc LIMIT 10""")
-    df_snow_log = pd.read_sql_query(
-        statement,
-        conn,
-        index_col="snowlogID",
-    )
-    df_snow_log = df_snow_log.astype(str)
+        # snow log
+        statement = text(f"""SELECT * FROM Snow_Log order by snowlogID desc LIMIT 10""")
+        df_snow_log = pd.read_sql_query(
+            statement,
+            conn,
+            index_col="snowlogID",
+        )
+        df_snow_log = df_snow_log.astype(str)
 
     return df_lift_status_log, df_wind_log, df_snow_log
 
