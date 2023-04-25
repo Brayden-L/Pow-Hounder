@@ -53,7 +53,7 @@ def create_sql_engine(secrets):
             port="3306",
             database="Pow_Hounder",
         )
-        engine = create_engine(sql_url_obj, pool_size=10, max_overflow=-1)
+        engine = create_engine(sql_url_obj, pool_size=20, max_overflow=10)
         print("Connected to SQL server")
     except:
         print("Connection Error")
@@ -67,9 +67,13 @@ def twilio_setup(secrets):
 
 
 # %%
-def create_selenium_driver():
+def create_selenium_service():
     service = Service(GeckoDriverManager().install())
+    return service
 
+
+# %%
+def create_selenium_driver(service):
     firefox_options = Options()
     firefox_options.add_argument("--headless")
     firefox_options.set_preference("browser.download.folderList", 2)
@@ -81,8 +85,8 @@ def create_selenium_driver():
         options=firefox_options,
         service=service,
     )
-
     driver.implicitly_wait(2)
+
     return driver
 
 
@@ -96,16 +100,17 @@ def deploy_sql_engine_streamlit():
 # %%
 def deploy_drivers_and_engines():
     secrets = import_secrets(".env")
-    driver = create_selenium_driver()
+    service = create_selenium_service()
     engine = create_sql_engine(secrets)
     client = twilio_setup(secrets)
-    return driver, engine, client
+    return service, engine, client
 
 
 # SCRAPE AND SQL PUSH FUNCTIONS
 # %%
-def dl_lift_status(driver, retries=3):
+def dl_lift_status(service, retries=3):
     """ """
+    driver = create_selenium_driver(service)
     driver.get("https://www.mammothmountain.com/on-the-mountain/mountain-report-winter")
     try:
         WebDriverWait(driver, 10).until(
@@ -169,7 +174,8 @@ def dl_lift_status(driver, retries=3):
 
 
 # %%
-def dl_wind_dat(driver):
+def dl_wind_dat(service):
+    driver = create_selenium_driver(service)
     wind_dat_page_link = "https://mammothmountain.westernweathergroup.com/"
     wind_dat_dl_butt = """//*[@id="Body"]/div/div/div[2]/div/div/div/div[1]/div/a[2]"""
     driver.get(wind_dat_page_link)
@@ -212,7 +218,8 @@ def dl_wind_dat(driver):
 
 
 # %%
-def dl_snow_dat(driver):
+def dl_snow_dat(service):
+    driver = create_selenium_driver(service)
     snow_dat_page_link = (
         "https://www.onthesnow.com/california/mammoth-mountain-ski-area/skireport"
     )
@@ -271,30 +278,30 @@ def is_now_in_time_period(start_time, end_time, now_time):
 def perform_lift_scrape(
     poll_int=300, start_time=dt.time(5, 30), end_time=dt.time(17, 30)
 ):
-    driver, engine, twilio_client = deploy_drivers_and_engines()
+    service, engine, twilio_client = deploy_drivers_and_engines()
     while True:
         while is_now_in_time_period(
             start_time,
             end_time,
             now_time=dt.datetime.now().astimezone(pytz.timezone("US/Pacific")).time(),
         ):
-            lift_dat = dl_lift_status(driver)
+            lift_dat = dl_lift_status(service)
             push_lift_dat(lift_dat, engine)
             time.sleep(poll_int)
 
 
 def perform_wind_scrape(poll_int=900):
-    driver, engine, twilio_client = deploy_drivers_and_engines()
+    service, engine, twilio_client = deploy_drivers_and_engines()
     while True:
-        wind_dat = dl_wind_dat(driver)
+        wind_dat = dl_wind_dat(service)
         push_wind_dat(wind_dat, engine)
         time.sleep(poll_int)
 
 
 def perform_snow_scrape(poll_int=3600):
-    driver, engine, twilio_client = deploy_drivers_and_engines()
+    service, engine, twilio_client = deploy_drivers_and_engines()
     while True:
-        snow_dat = dl_snow_dat(driver)
+        snow_dat = dl_snow_dat(service)
         push_snow_dat(snow_dat, engine)
         time.sleep(poll_int)
 
