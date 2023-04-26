@@ -92,14 +92,14 @@ def create_selenium_driver(service):
 
 # %%
 def deploy_sql_engine_streamlit():
-    secrets = import_secrets(".env")
+    secrets = import_secrets("streamlit")
     engine = create_sql_engine(secrets)
     return engine
 
 
 # %%
 def deploy_drivers_and_engines():
-    secrets = import_secrets("streamlit")
+    secrets = import_secrets(".env")
     service = create_selenium_service()
     engine = create_sql_engine(secrets)
     client = twilio_setup(secrets)
@@ -325,12 +325,13 @@ def check_for_lift_status_change(df_before, df_now):
     return update_full_str
 
 
+# %%
 def check_valid_phone_number(engine):
     with engine.connect() as conn:
         df = pd.read_sql("Active_Notify_Numbers", conn)
     df["start_date"] = pd.to_datetime(df["start_date"])
     df["end_date"] = pd.to_datetime(df["end_date"])
-    todays_date = pd.Timestamp("today")
+    todays_date = pd.to_datetime("today").normalize()
     phone_list_series = df[
         (todays_date >= df["start_date"]) & (todays_date <= df["end_date"])
     ]["phone_number"]
@@ -340,20 +341,22 @@ def check_valid_phone_number(engine):
 
 # %%
 def lift_status_notifier(int=300):
-    driver, engine, twilio_client = deploy_drivers_and_engines()
-    df_before = dl_lift_status(driver)  # Initialize for initial comparison
+    service, engine, twilio_client = deploy_drivers_and_engines()
+    df_before = dl_lift_status(service)  # Initialize for initial comparison
 
     while True:
         while is_now_in_time_period(
             start_time=dt.time(5, 30),
             end_time=dt.time(23, 30),
             now_time=dt.datetime.now().astimezone(pytz.timezone("US/Pacific")).time(),
-        ):
-            while phone_number_list := check_valid_phone_number(engine):
+        ):  # only run in a timeframe that where we expect lift status to change or be relevant
+            while phone_number_list := check_valid_phone_number(
+                engine
+            ):  # only run the scraper when there is a number requesting we do so
                 phone_number_list = list(
                     set(phone_number_list)
                 )  # remove duplicates from list
-                df_now = dl_lift_status(driver)
+                df_now = dl_lift_status(service)
                 lift_update_str = check_for_lift_status_change(df_before, df_now)
                 df_before = df_now  # reset comparison
                 print(df_before)
