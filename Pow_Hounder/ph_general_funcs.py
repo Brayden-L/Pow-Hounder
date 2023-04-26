@@ -309,7 +309,14 @@ def perform_snow_scrape(poll_int=3600):
 # NOTIFICATION RELATED FUNCTIONS
 # %%
 def check_for_lift_status_change(df_before, df_now):
-    df_differences = df_before["lift_status"].compare(df_now["lift_status"])
+    try:
+        df_differences = df_before["lift_status"].compare(df_now["lift_status"])
+    except Exception as e:
+        df_differences = (
+            pd.DataFrame()
+        )  # If the comparison doesn't work for whatever reason, it will output an empty dataframe
+        print(e)
+
     if not df_differences.empty:
         update_str_list = []
         for ind in df_differences.index:
@@ -347,7 +354,7 @@ def lift_status_notifier(int=300):
     while True:
         while is_now_in_time_period(
             start_time=dt.time(5, 30),
-            end_time=dt.time(23, 30),
+            end_time=dt.time(17, 30),
             now_time=dt.datetime.now().astimezone(pytz.timezone("US/Pacific")).time(),
         ):  # only run in a timeframe that where we expect lift status to change or be relevant
             while phone_number_list := check_valid_phone_number(
