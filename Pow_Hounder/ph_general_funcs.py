@@ -14,7 +14,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
-from webdriver_manager.firefox import GeckoDriverManager
 from selenium.webdriver.common.by import By
 from pyvirtualdisplay import Display
 
@@ -67,13 +66,7 @@ def twilio_setup(secrets):
 
 
 # %%
-def create_selenium_service():
-    service = Service(GeckoDriverManager().install())
-    return service
-
-
-# %%
-def create_selenium_driver(service):
+def create_selenium_driver():
     firefox_options = Options()
     firefox_options.add_argument("--headless")
     firefox_options.set_preference("browser.download.folderList", 2)
@@ -83,7 +76,6 @@ def create_selenium_driver(service):
 
     driver = webdriver.Firefox(
         options=firefox_options,
-        service=service,
     )
     driver.implicitly_wait(2)
 
@@ -100,23 +92,24 @@ def deploy_sql_engine_streamlit():
 # %%
 def deploy_drivers_and_engines():
     secrets = import_secrets(".env")
-    service = create_selenium_service()
     engine = create_sql_engine(secrets)
     client = twilio_setup(secrets)
-    return service, engine, client
+    return engine, client
 
 
 # SCRAPE AND SQL PUSH FUNCTIONS
 # %%
-def dl_lift_status(service, retries=3):
+def dl_lift_status(retries=3):
     """ """
-    driver = create_selenium_driver(service)
+    driver = create_selenium_driver()
     driver.get("https://www.mammothmountain.com/on-the-mountain/mountain-report-winter")
     try:
         WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "Lifts_inner__okoV3"))
+            EC.presence_of_element_located((By.CLASS_NAME, "Lift_inner__I42dG"))
         )
-        lift_elem_list = driver.find_elements(By.CLASS_NAME, "Lifts_inner__okoV3")
+        time.sleep(3) # wait for javascript to load
+        lift_elem_list = driver.find_elements(By.CLASS_NAME, "Lift_inner__I42dG")
+        
     except TimeoutException:
         lift_elem_list = []
 
@@ -126,14 +119,14 @@ def dl_lift_status(service, retries=3):
 
     for entry in lift_elem_list:
         try:
-            lift_name = re.search(r"^(.+?)(?=\n)", entry.text).group(0)
+            lift_name = entry.text.splitlines()[0] # First line
             if lift_name is None:
                 lift_name = ""
         except:
             lift_name = ""
 
         try:
-            lift_status = re.search(r"(?<=\n)(.*?)(?=\n)", entry.text).group(0)
+            lift_status = entry.text.splitlines()[2] # Third line
             if lift_status is None:
                 lift_status = ""
         except:
@@ -174,8 +167,8 @@ def dl_lift_status(service, retries=3):
 
 
 # %%
-def dl_wind_dat(service):
-    driver = create_selenium_driver(service)
+def dl_wind_dat():
+    driver = create_selenium_driver()
     wind_dat_page_link = "https://mammothmountain.westernweathergroup.com/"
     wind_dat_dl_butt = """//*[@id="Body"]/div/div/div[2]/div/div/div/div[1]/div/a[2]"""
     driver.get(wind_dat_page_link)
@@ -218,18 +211,19 @@ def dl_wind_dat(service):
 
 
 # %%
-def dl_snow_dat(service):
-    driver = create_selenium_driver(service)
+def dl_snow_dat():
+    driver = create_selenium_driver()
     snow_dat_page_link = (
         "https://www.onthesnow.com/california/mammoth-mountain-ski-area/skireport"
     )
     driver.get(snow_dat_page_link)
+    time.sleep(5)
+        
     try:
-        # snow_elem = driver.find_element("css selector", "[title^='72 Hour Snowfall']")
-        snow_elem = driver.find_element(
-            "xpath",
-            """//*[@id="__next"]/div[6]/div[2]/div/article[3]/div[2]/div[2]/div[3]/table/tbody/tr[1]/td[8]/span""",
-        )
+        # Todays snowfall
+        snow_elements = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'styles_snow__Djsgc'))
+    )
+        snow_elem = snow_elements[7]
     except TimeoutException:
         snow_elem = None
 
@@ -247,7 +241,7 @@ def dl_snow_dat(service):
     )
     driver.close()
     return df
-
+dl_snow_dat()
 
 # %%
 def push_snow_dat(snow_dat, engine):
@@ -278,30 +272,31 @@ def is_now_in_time_period(start_time, end_time, now_time):
 def perform_lift_scrape(
     poll_int=300, start_time=dt.time(5, 30), end_time=dt.time(17, 30)
 ):
-    service, engine, twilio_client = deploy_drivers_and_engines()
+    engine, twilio_client = deploy_drivers_and_engines()
     while True:
         while is_now_in_time_period(
             start_time,
             end_time,
             now_time=dt.datetime.now().astimezone(pytz.timezone("US/Pacific")).time(),
         ):
-            lift_dat = dl_lift_status(service)
+            lift_dat = dl_lift_status()
+            print(lift_dat)
             push_lift_dat(lift_dat, engine)
             time.sleep(poll_int)
 
 
 def perform_wind_scrape(poll_int=900):
-    service, engine, twilio_client = deploy_drivers_and_engines()
+    engine, twilio_client = deploy_drivers_and_engines()
     while True:
-        wind_dat = dl_wind_dat(service)
+        wind_dat = dl_wind_dat()
         push_wind_dat(wind_dat, engine)
         time.sleep(poll_int)
 
 
 def perform_snow_scrape(poll_int=3600):
-    service, engine, twilio_client = deploy_drivers_and_engines()
+    engine, twilio_client = deploy_drivers_and_engines()
     while True:
-        snow_dat = dl_snow_dat(service)
+        snow_dat = dl_snow_dat()
         push_snow_dat(snow_dat, engine)
         time.sleep(poll_int)
 
@@ -335,7 +330,7 @@ def check_for_lift_status_change(df_before, df_now):
 # %%
 def check_valid_phone_number(engine):
     with engine.connect() as conn:
-        df = pd.read_sql("Active_Notify_Numbers", conn)
+        df = pd.read_sql(text("Active_Notify_Numbers"), conn)
     df["start_date"] = pd.to_datetime(df["start_date"])
     df["end_date"] = pd.to_datetime(df["end_date"])
     todays_date = pd.to_datetime("today").normalize()
@@ -348,8 +343,8 @@ def check_valid_phone_number(engine):
 
 # %%
 def lift_status_notifier(int=300):
-    service, engine, twilio_client = deploy_drivers_and_engines()
-    df_before = dl_lift_status(service)  # Initialize for initial comparison
+    engine, twilio_client = deploy_drivers_and_engines()
+    df_before = dl_lift_status()  # Initialize for initial comparison
 
     while True:
         while is_now_in_time_period(
@@ -363,7 +358,7 @@ def lift_status_notifier(int=300):
                 phone_number_list = list(
                     set(phone_number_list)
                 )  # remove duplicates from list
-                df_now = dl_lift_status(service)
+                df_now = dl_lift_status()
                 lift_update_str = check_for_lift_status_change(df_before, df_now)
                 df_before = df_now  # reset comparison
                 print(df_before)

@@ -28,7 +28,6 @@ streamlit-lottie = "^0.0.3"
 scipy = "^1.10.0"
 selenium-wire = "^5.1.0"
 selenium = "^4.8.0"
-webdriver-manager = "^3.8.5"
 category-encoders = "^2.6.0"
 twilio = "^8.0.0"
 pytz = "^2023.3"
@@ -36,6 +35,7 @@ pymysql = "^1.0.3"
 mysql-connector-python = "^8.0.32"
 SQLAlchemy = "^2.0.9"
 PyVirtualDisplay = "^3.0"
+python-dotenv = "^1.0.0"
 
 
 [tool.poetry.group.dev.dependencies]

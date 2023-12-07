@@ -1,7 +1,7 @@
 mnt_bg_img = f"""
 <style>
 [data-testid="stAppViewContainer"] > .main {{
-background-image: url("https://www.visitmammoth.com/wp-content/uploads/Mammoth-Mountain-Landscape-winter.jpg");
+background-image: url("https://www.activenorcal.com/wp-content/uploads/2023/03/Mammoth-3.png");
 background-size: 100%;
 background-position: top left;
 background-repeat: no-repeat;
