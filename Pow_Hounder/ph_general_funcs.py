@@ -15,6 +15,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
+from webdriver_manager.firefox import GeckoDriverManager
 from pyvirtualdisplay import Display
 
 # SQL Related
@@ -64,10 +65,13 @@ def twilio_setup(secrets):
     client = Client(secrets["TWILIO_SID"], secrets["TWILIO_TOKEN"])
     return client
 
+# %%
+def create_selenium_service():
+    service = Service(GeckoDriverManager().install())
+    return service
 
 # %%
-def create_selenium_driver():
-    service=Service()
+def create_selenium_driver(service):
     firefox_options = Options()
     firefox_options.add_argument("--headless")
     firefox_options.set_preference("browser.download.folderList", 2)
@@ -94,16 +98,17 @@ def deploy_sql_engine_streamlit():
 # %%
 def deploy_drivers_and_engines():
     secrets = import_secrets(".env")
+    service = create_selenium_service()
     engine = create_sql_engine(secrets)
     client = twilio_setup(secrets)
-    return engine, client
+    return service, engine, client
 
 
 # SCRAPE AND SQL PUSH FUNCTIONS
 # %%
-def dl_lift_status(retries=3):
+def dl_lift_status(service, retries=3):
     """ """
-    driver = create_selenium_driver()
+    driver = create_selenium_driver(service)
     driver.get("https://www.mammothmountain.com/on-the-mountain/mountain-report-winter")
     try:
         WebDriverWait(driver, 10).until(
@@ -169,8 +174,8 @@ def dl_lift_status(retries=3):
 
 
 # %%
-def dl_wind_dat():
-    driver = create_selenium_driver()
+def dl_wind_dat(service):
+    driver = create_selenium_driver(service)
     wind_dat_page_link = "https://mammothmountain.westernweathergroup.com/"
     wind_dat_dl_butt = """//*[@id="Body"]/div/div/div[2]/div/div/div/div[1]/div/a[2]"""
     driver.get(wind_dat_page_link)
@@ -213,8 +218,8 @@ def dl_wind_dat():
 
 
 # %%
-def dl_snow_dat():
-    driver = create_selenium_driver()
+def dl_snow_dat(service):
+    driver = create_selenium_driver(service)
     snow_dat_page_link = (
         "https://www.onthesnow.com/california/mammoth-mountain-ski-area/skireport"
     )
@@ -243,7 +248,6 @@ def dl_snow_dat():
     )
     driver.close()
     return df
-dl_snow_dat()
 
 # %%
 def push_snow_dat(snow_dat, engine):
@@ -274,31 +278,31 @@ def is_now_in_time_period(start_time, end_time, now_time):
 def perform_lift_scrape(
     poll_int=300, start_time=dt.time(5, 30), end_time=dt.time(17, 30)
 ):
-    engine, twilio_client = deploy_drivers_and_engines()
+    service, engine, twilio_client = deploy_drivers_and_engines()
     while True:
         while is_now_in_time_period(
             start_time,
             end_time,
             now_time=dt.datetime.now().astimezone(pytz.timezone("US/Pacific")).time(),
         ):
-            lift_dat = dl_lift_status()
+            lift_dat = dl_lift_status(service)
             print(lift_dat)
             push_lift_dat(lift_dat, engine)
             time.sleep(poll_int)
 
 
 def perform_wind_scrape(poll_int=900):
-    engine, twilio_client = deploy_drivers_and_engines()
+    service, engine, twilio_client = deploy_drivers_and_engines()
     while True:
-        wind_dat = dl_wind_dat()
+        wind_dat = dl_wind_dat(service)
         push_wind_dat(wind_dat, engine)
         time.sleep(poll_int)
 
 
 def perform_snow_scrape(poll_int=3600):
-    engine, twilio_client = deploy_drivers_and_engines()
+    service, engine, twilio_client = deploy_drivers_and_engines()
     while True:
-        snow_dat = dl_snow_dat()
+        snow_dat = dl_snow_dat(service)
         push_snow_dat(snow_dat, engine)
         time.sleep(poll_int)
 
@@ -345,8 +349,8 @@ def check_valid_phone_number(engine):
 
 # %%
 def lift_status_notifier(int=300):
-    engine, twilio_client = deploy_drivers_and_engines()
-    df_before = dl_lift_status()  # Initialize for initial comparison
+    service, engine, twilio_client = deploy_drivers_and_engines()
+    df_before = dl_lift_status(service)  # Initialize for initial comparison
 
     while True:
         while is_now_in_time_period(
@@ -360,7 +364,7 @@ def lift_status_notifier(int=300):
                 phone_number_list = list(
                     set(phone_number_list)
                 )  # remove duplicates from list
-                df_now = dl_lift_status()
+                df_now = dl_lift_status(service)
                 lift_update_str = check_for_lift_status_change(df_before, df_now)
                 df_before = df_now  # reset comparison
                 print(df_before)
