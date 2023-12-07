@@ -1,7 +1,7 @@
 mnt_bg_img = f"""
 <style>
 [data-testid="stAppViewContainer"] > .main {{
-background-image: url("https://www.activenorcal.com/wp-content/uploads/2023/03/Mammoth-3.png");
+background-image: url("https://mediaim.expedia.com/destination/1/c472795cb630e0c7051315a106d4ae4f.jpg");
 background-size: 100%;
 background-position: top left;
 background-repeat: no-repeat;
