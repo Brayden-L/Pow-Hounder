@@ -67,6 +67,7 @@ def twilio_setup(secrets):
 
 # %%
 def create_selenium_driver():
+    service=Service()
     firefox_options = Options()
     firefox_options.add_argument("--headless")
     firefox_options.set_preference("browser.download.folderList", 2)
@@ -76,6 +77,7 @@ def create_selenium_driver():
 
     driver = webdriver.Firefox(
         options=firefox_options,
+        service=service,
     )
     driver.implicitly_wait(2)
 
