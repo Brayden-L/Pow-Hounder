@@ -17,6 +17,7 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from webdriver_manager.firefox import GeckoDriverManager
 from pyvirtualdisplay import Display
+import ssl; ssl._create_default_https_context = ssl._create_unverified_context # This allows for unverified certificates which reduces messing around with EC2 instance, but is a potential security risk. Only request
 
 # SQL Related
 from sqlalchemy import create_engine, URL, text
@@ -111,11 +112,22 @@ def dl_lift_status(service, retries=3):
     driver = create_selenium_driver(service)
     driver.get("https://www.mammothmountain.com/on-the-mountain/mountain-report-winter")
     try:
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "Lift_inner__I42dG"))
-        )
-        time.sleep(3) # wait for javascript to load
-        lift_elem_list = driver.find_elements(By.CLASS_NAME, "Lift_inner__I42dG")
+        elements_locator = "Lift_inner__I42dG"
+        unwanted_text = 'Loading...'
+        max_wait_time = 120 # in sec
+        
+        wait = WebDriverWait(driver, max_wait_time)
+        
+        # Define a function to check if the text no longer appears in the element
+        def text_not_loading(element):
+            return unwanted_text not in element.text
+        
+        # Wait for all elements with the class name to no longer contain expected text.
+        elements = wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, elements_locator)))
+        wait.until(lambda driver: all(text_not_loading(element) for element in elements))
+        
+        # Get all those elements
+        lift_elem_list = driver.find_elements(By.CLASS_NAME, elements_locator)
         
     except TimeoutException:
         lift_elem_list = []
@@ -172,7 +184,8 @@ def dl_lift_status(service, retries=3):
     driver.close()
     return d
 
-
+service = create_selenium_service()
+dl_lift_status(service, retries=3)
 # %%
 def dl_wind_dat(service):
     driver = create_selenium_driver(service)
