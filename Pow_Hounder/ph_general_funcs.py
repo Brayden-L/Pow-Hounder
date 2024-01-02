@@ -184,8 +184,6 @@ def dl_lift_status(service, retries=3):
     driver.close()
     return d
 
-service = create_selenium_service()
-dl_lift_status(service, retries=3)
 # %%
 def dl_wind_dat(service):
     driver = create_selenium_driver(service)
