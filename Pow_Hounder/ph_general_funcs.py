@@ -56,8 +56,9 @@ def create_sql_engine(secrets):
         )
         engine = create_engine(sql_url_obj, pool_size=20, max_overflow=10)
         print("Connected to SQL server")
-    except:
+    except Exception as e:
         print("Connection Error")
+        print(e)
     return engine
 
 
@@ -347,7 +348,8 @@ def check_for_lift_status_change(df_before, df_now):
 # %%
 def check_valid_phone_number(engine):
     with engine.connect() as conn:
-        df = pd.read_sql(text("Active_Notify_Numbers"), conn)
+        query = text("SELECT * FROM Active_Notify_Numbers")
+        df = pd.read_sql(query, conn)
     df["start_date"] = pd.to_datetime(df["start_date"])
     df["end_date"] = pd.to_datetime(df["end_date"])
     todays_date = pd.to_datetime("today").normalize()
