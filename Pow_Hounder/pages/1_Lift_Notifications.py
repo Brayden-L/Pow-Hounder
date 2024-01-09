@@ -3,7 +3,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, ColumnsAutoSizeMode
 import streamlit_nested_layout
 import re
 import datetime as dt
-from ph_general_funcs import push_number, rem_number
+from ph_general_funcs import push_email_address, rem_email_address
 from ph_long_strs import blue_gradient_bg_img
 
 st.markdown(blue_gradient_bg_img, unsafe_allow_html=True)
@@ -45,12 +45,12 @@ if user_meth_bool == "Add":
     )
     if add_notif_bool:
         with st.spinner():
-            push_number(user_email, user_notif_date_range)
+            push_email_address(user_email, user_notif_date_range)
             st.success("Notifications Activated")
 
 if user_meth_bool == "Remove":
     rem_notif_bool = col1.button("Remove Notifications", disabled=invalid_email_bool)
     if rem_notif_bool:
         with st.spinner():
-            rem_number(user_email)
+            rem_email_address(user_email)
             st.success("Notifications Removed")

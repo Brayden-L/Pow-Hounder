@@ -22,6 +22,11 @@ import ssl; ssl._create_default_https_context = ssl._create_unverified_context #
 # SQL Related
 from sqlalchemy import create_engine, URL, text
 
+# Notification Related
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
 # General
 import datetime as dt
 import time
@@ -336,19 +341,53 @@ def check_for_lift_status_change(df_before, df_now):
 
 
 # %%
-def check_valid_phone_number(engine):
+def check_valid_email(engine):
     with engine.connect() as conn:
-        query = text("SELECT * FROM Active_Notify_Numbers")
+        query = text("SELECT * FROM Active_Notify_Emails")
         df = pd.read_sql(query, conn)
     df["start_date"] = pd.to_datetime(df["start_date"])
     df["end_date"] = pd.to_datetime(df["end_date"])
     todays_date = pd.to_datetime("today").normalize()
-    phone_list_series = df[
+    email_list_series = df[
         (todays_date >= df["start_date"]) & (todays_date <= df["end_date"])
-    ]["phone_number"]
-    phone_list = phone_list_series.to_list()
-    return phone_list
+    ]["email_address"]
+    email_list = email_list_series.to_list()
+    return email_list
 
+# %%
+def send_email(recipient_email_list, message_text):
+    secrets = import_secrets(".env")
+    
+    # Sender and recipient email addresses
+    sender_email = "PowHounder@gmail.com"
+
+    # Email server details (for Gmail, you can use smtp.gmail.com)
+    smtp_server = "smtp.gmail.com"
+    smtp_port = 587  # Port for TLS
+
+    # Your email credentials
+    username = secrets["EMAIL_SENDER_USERNAME"]
+    password = secrets["EMAIL_SENDER_PASSWORD"]  # Use the App Password here
+
+    for recipient_email in recipient_email_list:
+        # Create the email message
+        subject = "Pow-Hounder Update"
+        body = message_text
+        message = MIMEMultipart()
+        message["From"] = sender_email
+        message["To"] = recipient_email
+        message["Subject"] = subject
+        message.attach(MIMEText(body, "plain"))
+
+        # Connect to the SMTP server and send the email
+        try:
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()  # Enable TLS
+                server.login(username, password)
+                server.sendmail(sender_email, recipient_email, message.as_string())
+            print(f"Email sent successfully to {recipient_email}")
+        except Exception as e:
+            print(f"Error: {e}")
 
 # %%
 def lift_status_notifier(int=300):
@@ -361,11 +400,11 @@ def lift_status_notifier(int=300):
             end_time=dt.time(17, 30),
             now_time=dt.datetime.now().astimezone(pytz.timezone("US/Pacific")).time(),
         ):  # only run in a timeframe that where we expect lift status to change or be relevant
-            while phone_number_list := check_valid_phone_number(
+            while email_address_list := check_valid_email(
                 engine
             ):  # only run the scraper when there is a number requesting we do so
-                phone_number_list = list(
-                    set(phone_number_list)
+                email_address_list = list(
+                    set(email_address_list)
                 )  # remove duplicates from list
                 df_now = dl_lift_status(service)
                 lift_update_str = check_for_lift_status_change(df_before, df_now)
@@ -374,33 +413,31 @@ def lift_status_notifier(int=300):
                 print(dt.datetime.now())
                 if lift_update_str:
                     print(lift_update_str)
-                    # message = 
+                    send_email(email_address_list, lift_update_str)
                 time.sleep(int)
 
 
 # %%
-def push_number(phone_number, user_notif_date_range):
+def push_email_address(email, user_notif_date_range):
     engine = deploy_sql_engine_streamlit()
 
-    phone_number = f"+1{phone_number}"  # add +1
     start_date = user_notif_date_range[0].strftime("%Y-%m-%d")
     end_date = user_notif_date_range[1].strftime("%Y-%m-%d")
     df = pd.DataFrame(
         {
-            "phone_number": [phone_number],
+            "email_address": [email],
             "start_date": [start_date],
             "end_date": [end_date],
         }
     )
-    df.to_sql("Active_Notify_Numbers", engine, if_exists="append", index=False)
+    df.to_sql("Active_Notify_Emails", engine, if_exists="append", index=False)
 
 
-def rem_number(phone_number):
+def rem_email_address(email):
     engine = deploy_sql_engine_streamlit()
-    phone_number = f"+1{phone_number}"  # add +1
     with engine.connect() as conn:
         statement = text(
-            f"""DELETE FROM Active_Notify_Numbers WHERE phone_number='{phone_number}'"""
+            f"""DELETE FROM Active_Notify_Emails WHERE email_address='{email}'"""
         )
         conn.execute(statement)
         conn.commit()
