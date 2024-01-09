@@ -22,9 +22,6 @@ import ssl; ssl._create_default_https_context = ssl._create_unverified_context #
 # SQL Related
 from sqlalchemy import create_engine, URL, text
 
-# Notification Related
-from twilio.rest import Client
-
 # General
 import datetime as dt
 import time
@@ -61,12 +58,6 @@ def create_sql_engine(secrets):
         print(e)
     return engine
 
-
-# %%
-def twilio_setup(secrets):
-    client = Client(secrets["TWILIO_SID"], secrets["TWILIO_TOKEN"])
-    return client
-
 # %%
 def create_selenium_service():
     service = Service(GeckoDriverManager().install())
@@ -102,8 +93,7 @@ def deploy_drivers_and_engines():
     secrets = import_secrets(".env")
     service = create_selenium_service()
     engine = create_sql_engine(secrets)
-    client = twilio_setup(secrets)
-    return service, engine, client
+    return service, engine
 
 
 # SCRAPE AND SQL PUSH FUNCTIONS
@@ -290,7 +280,7 @@ def is_now_in_time_period(start_time, end_time, now_time):
 def perform_lift_scrape(
     poll_int=300, start_time=dt.time(5, 30), end_time=dt.time(17, 30)
 ):
-    service, engine, twilio_client = deploy_drivers_and_engines()
+    service, engine = deploy_drivers_and_engines()
     while True:
         while is_now_in_time_period(
             start_time,
@@ -304,7 +294,7 @@ def perform_lift_scrape(
 
 
 def perform_wind_scrape(poll_int=900):
-    service, engine, twilio_client = deploy_drivers_and_engines()
+    service, engine = deploy_drivers_and_engines()
     while True:
         wind_dat = dl_wind_dat(service)
         push_wind_dat(wind_dat, engine)
@@ -312,7 +302,7 @@ def perform_wind_scrape(poll_int=900):
 
 
 def perform_snow_scrape(poll_int=3600):
-    service, engine, twilio_client = deploy_drivers_and_engines()
+    service, engine = deploy_drivers_and_engines()
     while True:
         snow_dat = dl_snow_dat(service)
         push_snow_dat(snow_dat, engine)
@@ -362,7 +352,7 @@ def check_valid_phone_number(engine):
 
 # %%
 def lift_status_notifier(int=300):
-    service, engine, twilio_client = deploy_drivers_and_engines()
+    service, engine = deploy_drivers_and_engines()
     df_before = dl_lift_status(service)  # Initialize for initial comparison
 
     while True:
@@ -384,9 +374,7 @@ def lift_status_notifier(int=300):
                 print(dt.datetime.now())
                 if lift_update_str:
                     print(lift_update_str)
-                    message = twilio_client.messages.create(
-                        body=lift_update_str, from_="+18336914492", to=phone_number_list
-                    )
+                    # message = 
                 time.sleep(int)
 
 
