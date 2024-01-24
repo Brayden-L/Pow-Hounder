@@ -388,8 +388,6 @@ def send_email(recipient_email_list, message_text):
             print(f"Email sent successfully to {recipient_email}")
         except Exception as e:
             print(f"Error: {e}")
-            
-send_email('braydenmlevy@gmail.com', 'test')
 
 # %%
 def lift_status_notifier(int=300):
