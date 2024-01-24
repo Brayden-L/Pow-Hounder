@@ -177,7 +177,7 @@ def dl_lift_status(service, retries=3):
             "data_scrape_time": data_scrape_times,
         }
     )
-    driver.close()
+    driver.quit()
     return d
 
 # %%
@@ -220,7 +220,7 @@ def dl_wind_dat(service):
         "data_scrape_time",
     ]
     df = df.set_axis(cols, axis=1)
-    driver.close()
+    driver.quit()
     return df
 
 
@@ -253,7 +253,7 @@ def dl_snow_dat(service):
     df = pd.DataFrame(
         data={"snowfall": [snowfall], "data_scrape_time": [data_scrape_time]}
     )
-    driver.close()
+    driver.quit()
     return df
 
 # %%
@@ -388,6 +388,8 @@ def send_email(recipient_email_list, message_text):
             print(f"Email sent successfully to {recipient_email}")
         except Exception as e:
             print(f"Error: {e}")
+            
+send_email('braydenmlevy@gmail.com', 'test')
 
 # %%
 def lift_status_notifier(int=300):
